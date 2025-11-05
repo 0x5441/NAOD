@@ -1,0 +1,27 @@
+name: Test Discord Message
+
+on:
+  workflow_dispatch:   # تقدر تشغله يدويًا من تبويب Actions
+  schedule:
+    - cron: "0 9 * * *"  # (اختياري) يشغله يوميًا الساعة 9:00 صباحًا UTC
+
+jobs:
+  send-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send "test" message to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+        run: |
+          echo "Sending test message to Discord..."
+          node - <<'NODE'
+          const url = process.env.WEBHOOK_URL;
+          const message = { content: "🧪 test" };
+          fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(message)
+          })
+          .then(r => console.log("Status:", r.status))
+          .catch(err => console.error("Error:", err));
+          NODE
