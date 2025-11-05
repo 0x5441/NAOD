@@ -1,0 +1,48 @@
+name: Daily Discord Countdown
+
+on:
+  schedule:
+    - cron: "0 9 * * *"  # يوميًا الساعة 9:00 صباحًا بتوقيت UTC (عدّلها إذا تبغى)
+  workflow_dispatch:  # يسمح لك تشغله يدويًا من تبويب Actions
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send countdown message to Discord
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          START_DATE_ISO: "2025-11-01T00:00:00+08:00"  # غيّرها لتاريخ البداية
+        run: |
+          node - <<'NODE'
+          function addYearsMonths(date, years, months){
+            const d = new Date(date);
+            d.setFullYear(d.getFullYear() + years);
+            d.setMonth(d.getMonth() + months);
+            return d;
+          }
+          function diffYMD(from, to){
+            let y=0,m=0; let cursor=new Date(from);
+            while (addYearsMonths(cursor,1,0) <= to){ cursor=addYearsMonths(cursor,1,0); y++; }
+            while (addYearsMonths(cursor,0,1) <= to){ cursor=addYearsMonths(cursor,0,1); m++; }
+            const oneDay=24*60*60*1000;
+            const d=Math.ceil((to - cursor)/oneDay);
+            return {years:y,months:m,days:Math.max(0,d)};
+          }
+          const start = new Date(process.env.START_DATE_ISO);
+          const target = addYearsMonths(start,5,2);
+          const now = new Date();
+          let content="";
+          if(now >= target){
+            content="انتهى العد التنازلي ✅";
+          }else{
+            const {years,months,days} = diffYMD(now,target);
+            const totalDays = Math.ceil((target-now)/(24*60*60*1000));
+            content = `⏳ عدّاد اليوم:\nمتبقي تقريبًا: **${years} سنة، ${months} شهر، ${days} يوم**\n(الإجمالي: حوالي **${totalDays}** يوم)\n\nالهدف: ${target.toISOString().slice(0,10)} (من بداية: ${start.toISOString().slice(0,10)})`;
+          }
+          fetch(process.env.WEBHOOK_URL,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({content})
+          }).then(r=>r.text()).then(t=>console.log("Done:",t)).catch(console.error);
+          NODE
